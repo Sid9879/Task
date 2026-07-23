@@ -1,0 +1,40 @@
+{
+  "name": "task",
+  "version": "1.0.0",
+  "description": "Task Management System API | A production-ready RESTful API built with Node.js, Express, and JWT authentication. Features Role-Based Access Control (RBAC), task assignment, third-party notifications, Redis caching, Socket.io real-time updates, and interactive OpenAPI 3.0 (Swagger) documentation.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sid9879/Task.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Sid9879/Task/issues"
+  },
+  "homepage": "https://github.com/Sid9879/Task#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.3.0",
+    "joi": "^18.2.3",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.8.0",
+    "redis": "^6.1.0",
+    "socket.io": "^4.8.3",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
