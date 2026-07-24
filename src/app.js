@@ -11,7 +11,7 @@ const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 
-// Trust the reverse proxy (required for Rate Limiting to work correctly on Railway/Render)
+
 app.set('trust proxy', 1);
 
 app.use(express.json());
