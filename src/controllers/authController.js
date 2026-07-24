@@ -55,7 +55,7 @@ exports.login = async (req, res) => {
     const query = email ? { email } : { username };
     const user = await User.findOne(query).select('+password');
     if (!user) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials or user not found' });
     }
 
     if (!user.isActive) {
