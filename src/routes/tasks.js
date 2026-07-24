@@ -1,4 +1,6 @@
 const express = require('express');
+const router = express.Router();
+
 const {
   createTask,
   getTasks,
@@ -11,8 +13,6 @@ const {
 const { protect, authorize } = require('../middlewares/auth');
 const { validateCreateTask, validateUpdateTask } = require('../middlewares/validate');
 
-const router = express.Router();
-
 /**
  * @swagger
  * tags:
@@ -24,7 +24,7 @@ const router = express.Router();
  * @swagger
  * /api/tasks:
  *   get:
- *     summary: Get all tasks with filtering, sorting, and pagination
+ *     summary: Get all tasks (filtered by role — Admin sees all, Manager sees team, User sees own)
  *     tags: [Tasks]
  *     security:
  *       - bearerAuth: []
@@ -43,17 +43,30 @@ const router = express.Router();
  *         name: search
  *         schema:
  *           type: string
- *         description: Full-text search in title and description
+ *         description: Full-text search on title and description
+ *       - in: query
+ *         name: dueBefore
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tasks due before this date (e.g. 2027-01-01)
+ *       - in: query
+ *         name: dueAfter
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tasks due after this date
  *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
- *           example: dueDate
+ *           default: createdAt
  *       - in: query
  *         name: order
  *         schema:
  *           type: string
  *           enum: [asc, desc]
+ *           default: desc
  *       - in: query
  *         name: page
  *         schema:
@@ -64,24 +77,12 @@ const router = express.Router();
  *         schema:
  *           type: integer
  *           default: 10
- *       - in: query
- *         name: dueBefore
- *         schema:
- *           type: string
- *           format: date
- *       - in: query
- *         name: dueAfter
- *         schema:
- *           type: string
- *           format: date
  *     responses:
  *       200:
  *         description: List of tasks
- */
-
-/**
- * @swagger
- * /api/tasks:
+ *       401:
+ *         description: Unauthorized
+ *
  *   post:
  *     summary: Create a new task
  *     tags: [Tasks]
@@ -97,39 +98,103 @@ const router = express.Router();
  *             properties:
  *               title:
  *                 type: string
+ *                 example: Build REST API
  *               description:
  *                 type: string
+ *                 example: Implement all CRUD endpoints
  *               dueDate:
  *                 type: string
  *                 format: date-time
+ *                 example: "2027-01-01T00:00:00Z"
  *               priority:
  *                 type: string
  *                 enum: [Low, Medium, High]
+ *                 default: Medium
  *               status:
  *                 type: string
  *                 enum: [Pending, In Progress, Completed, Overdue]
+ *                 default: Pending
  *               assignedTo:
  *                 type: string
- *                 description: MongoDB User ID
+ *                 description: MongoDB ObjectId of the user to assign
+ *                 example: "6a625c93c1ad94d6ccb74d08"
  *     responses:
  *       201:
  *         description: Task created
+ *       400:
+ *         description: Validation error
+ *       403:
+ *         description: Access denied (role restriction)
  */
 router.route('/')
-  .get(protect, getTasks)
+  .get(protect, authorize('Admin', 'Manager'), getTasks)
   .post(protect, validateCreateTask, createTask);
 
 /**
  * @swagger
  * /api/tasks/assigned:
  *   get:
- *     summary: Get tasks assigned to the current user
+ *     summary: Get tasks assigned to the current logged-in user (with filters)
  *     tags: [Tasks]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Pending, In Progress, Completed, Overdue]
+ *         description: Filter by task status
+ *       - in: query
+ *         name: priority
+ *         schema:
+ *           type: string
+ *           enum: [Low, Medium, High]
+ *         description: Filter by priority
+ *       - in: query
+ *         name: dueBefore
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Tasks due before this date (e.g. 2027-06-01)
+ *       - in: query
+ *         name: dueAfter
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Tasks due after this date
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Full-text search on title/description
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           default: dueDate
+ *         description: Field to sort by (dueDate, createdAt, priority)
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: asc
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
  *     responses:
  *       200:
- *         description: Tasks assigned to current user
+ *         description: Paginated list of user's assigned tasks
+ *       401:
+ *         description: Unauthorized
  */
 router.get('/assigned', protect, getMyTasks);
 
@@ -149,14 +214,12 @@ router.get('/assigned', protect, getMyTasks);
  *           type: string
  *     responses:
  *       200:
- *         description: Task data
+ *         description: Task found
+ *       403:
+ *         description: Access denied
  *       404:
  *         description: Task not found
- */
-
-/**
- * @swagger
- * /api/tasks/{id}:
+ *
  *   put:
  *     summary: Update a task
  *     tags: [Tasks]
@@ -174,29 +237,22 @@ router.get('/assigned', protect, getMyTasks);
  *           schema:
  *             type: object
  *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               dueDate:
- *                 type: string
- *                 format: date-time
- *               priority:
- *                 type: string
- *                 enum: [Low, Medium, High]
- *               status:
- *                 type: string
- *                 enum: [Pending, In Progress, Completed, Overdue]
+ *               title:       { type: string }
+ *               description: { type: string }
+ *               dueDate:     { type: string, format: date-time }
+ *               priority:    { type: string, enum: [Low, Medium, High] }
+ *               status:      { type: string, enum: [Pending, In Progress, Completed, Overdue] }
+ *               assignedTo:  { type: string }
  *     responses:
  *       200:
  *         description: Task updated
- */
-
-/**
- * @swagger
- * /api/tasks/{id}:
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Task not found
+ *
  *   delete:
- *     summary: Delete a task (Admin or task creator only)
+ *     summary: Delete a task (Admin or creator only)
  *     tags: [Tasks]
  *     security:
  *       - bearerAuth: []
@@ -211,6 +267,8 @@ router.get('/assigned', protect, getMyTasks);
  *         description: Task deleted
  *       403:
  *         description: Access denied
+ *       404:
+ *         description: Task not found
  */
 router.route('/:id')
   .get(protect, getTask)
@@ -221,7 +279,7 @@ router.route('/:id')
  * @swagger
  * /api/tasks/{id}/assign:
  *   put:
- *     summary: Assign a task to a user (Admin/Manager only)
+ *     summary: Reassign a task to a different user (Admin or Manager only)
  *     tags: [Tasks]
  *     security:
  *       - bearerAuth: []
@@ -241,10 +299,14 @@ router.route('/:id')
  *             properties:
  *               assignedTo:
  *                 type: string
- *                 description: User ID to assign the task to
+ *                 description: MongoDB ObjectId of the new assignee
  *     responses:
  *       200:
- *         description: Task assigned successfully
+ *         description: Task reassigned
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Task or user not found
  */
 router.put('/:id/assign', protect, authorize('Admin', 'Manager'), assignTask);
 

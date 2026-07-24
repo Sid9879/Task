@@ -14,9 +14,8 @@ const { validateRegister, validateLogin } = require('../middlewares/validate');
 
 const router = express.Router();
 
-// Rate limiters
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: 10,
   message: { success: false, error: 'Too many login attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
@@ -24,7 +23,7 @@ const loginLimiter = rateLimit({
 });
 
 const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000, 
   max: 5,
   message: { success: false, error: 'Too many accounts created. Please try again later.' },
 });
@@ -33,7 +32,7 @@ const registerLimiter = rateLimit({
  * @swagger
  * tags:
  *   name: Auth
- *   description: User authentication and profile management
+ *   description: User management and authentication
  */
 
 /**
@@ -50,27 +49,14 @@ const registerLimiter = rateLimit({
  *             type: object
  *             required: [username, email, password]
  *             properties:
- *               username:
- *                 type: string
- *                 example: johndoe
- *               email:
- *                 type: string
- *                 example: john@example.com
- *               password:
- *                 type: string
- *                 example: "Password@123"
- *               role:
- *                 type: string
- *                 enum: [Admin, Manager, User]
- *                 default: User
- *               team:
- *                 type: string
- *                 example: Engineering
+ *               username: { type: string, example: johndoe }
+ *               email: { type: string, format: email, example: john@example.com }
+ *               password: { type: string, format: password, example: StrongPass123! }
  *     responses:
  *       201:
- *         description: User created successfully
+ *         description: User registered successfully
  *       400:
- *         description: Validation error or duplicate user
+ *         description: Validation error or user already exists
  */
 router.post('/register', registerLimiter, validateRegister, register);
 
@@ -78,7 +64,7 @@ router.post('/register', registerLimiter, validateRegister, register);
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Login user with email or username + password
+ *     summary: Log in with username or email
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -88,24 +74,14 @@ router.post('/register', registerLimiter, validateRegister, register);
  *             type: object
  *             required: [password]
  *             properties:
- *               email:
- *                 type: string
- *                 example: john@example.com
- *                 description: Use either email OR username to login
- *               username:
- *                 type: string
- *                 example: johndoe
- *                 description: Use either email OR username to login
- *               password:
- *                 type: string
- *                 example: "Password@123"
+ *               email: { type: string, description: "Email OR Username", example: "admin@test.com" }
+ *               username: { type: string, description: "Username OR Email", example: "adminuser" }
+ *               password: { type: string, format: password, example: "Admin@1234" }
  *     responses:
  *       200:
- *         description: Login successful, JWT returned
+ *         description: Login successful, returns JWT token
  *       401:
  *         description: Invalid credentials
- *       429:
- *         description: Rate limit exceeded
  */
 router.post('/login', loginLimiter, validateLogin, login);
 
@@ -113,7 +89,7 @@ router.post('/login', loginLimiter, validateLogin, login);
  * @swagger
  * /api/auth/logout:
  *   post:
- *     summary: Logout user (blacklist JWT)
+ *     summary: Log out current user (blacklists token)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -121,7 +97,7 @@ router.post('/login', loginLimiter, validateLogin, login);
  *       200:
  *         description: Logged out successfully
  *       401:
- *         description: Not authenticated
+ *         description: Not authorized
  */
 router.post('/logout', protect, logout);
 
@@ -129,7 +105,7 @@ router.post('/logout', protect, logout);
  * @swagger
  * /api/auth/me:
  *   get:
- *     summary: Get current logged-in user's profile
+ *     summary: Get current logged-in user profile
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -137,7 +113,7 @@ router.post('/logout', protect, logout);
  *       200:
  *         description: Current user profile
  *       401:
- *         description: Not authenticated
+ *         description: Not authorized
  */
 router.get('/me', protect, getMe);
 
@@ -153,7 +129,7 @@ router.get('/me', protect, getMe);
  *       200:
  *         description: List of all users
  *       403:
- *         description: Forbidden
+ *         description: Access denied
  */
 router.get('/users', protect, authorize('Admin'), getUsers);
 
@@ -161,7 +137,7 @@ router.get('/users', protect, authorize('Admin'), getUsers);
  * @swagger
  * /api/auth/users/{id}/role:
  *   put:
- *     summary: Update user role (Admin only)
+ *     summary: Update a user's role and team (Admin only)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -177,13 +153,17 @@ router.get('/users', protect, authorize('Admin'), getUsers);
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [role]
  *             properties:
- *               role:
- *                 type: string
- *                 enum: [Admin, Manager, User]
+ *               role: { type: string, enum: [Admin, Manager, User] }
+ *               team: { type: string, example: "Engineering" }
  *     responses:
  *       200:
  *         description: Role updated
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: User not found
  */
 router.put('/users/:id/role', protect, authorize('Admin'), updateUserRole);
 
@@ -191,7 +171,7 @@ router.put('/users/:id/role', protect, authorize('Admin'), updateUserRole);
  * @swagger
  * /api/auth/users/{id}/status:
  *   put:
- *     summary: Toggle user active/inactive status (Admin only)
+ *     summary: Activate or deactivate a user account (Admin only)
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -203,7 +183,11 @@ router.put('/users/:id/role', protect, authorize('Admin'), updateUserRole);
  *           type: string
  *     responses:
  *       200:
- *         description: Status updated
+ *         description: User status toggled
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: User not found
  */
 router.put('/users/:id/status', protect, authorize('Admin'), toggleUserStatus);
 

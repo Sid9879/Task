@@ -39,15 +39,17 @@ const taskSchema = new mongoose.Schema(
     },
     team: {
       type: String,
-      default: 'Default',
+      trim: true,
+      lowercase: true,
+      default: 'default',
     },
   },
   { timestamps: true }
 );
 
-// Text indexes for full-text search
+
 taskSchema.index({ title: 'text', description: 'text' });
-// Compound indexes for efficient filtering
+
 taskSchema.index({ status: 1, priority: 1, dueDate: 1 });
 taskSchema.index({ assignedTo: 1, status: 1 });
 taskSchema.index({ team: 1, status: 1 });

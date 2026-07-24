@@ -7,7 +7,6 @@ exports.getTaskAnalytics = async (req, res) => {
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ success: true, fromCache: true, data: cached });
 
-    // Build filter based on role
     let filter = {};
     if (req.user.role === 'User') filter.assignedTo = req.user._id;
     else if (req.user.role === 'Manager') filter.team = req.user.team;
@@ -130,3 +129,31 @@ exports.getTeamAnalytics = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+exports.getMyAnalytics = async (req, res) => {
+  try {
+    const cacheKey = `analytics:me:${req.user.id}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return res.status(200).json({ success: true, fromCache: true, data: cached });
+
+    // Filter restricted entirely to the requesting user's ID
+    const filter = { assignedTo: req.user._id };
+    const now = new Date();
+
+    const [total, completed, pending, inProgress, overdue] = await Promise.all([
+      Task.countDocuments(filter),
+      Task.countDocuments({ ...filter, status: 'Completed' }),
+      Task.countDocuments({ ...filter, status: 'Pending' }),
+      Task.countDocuments({ ...filter, status: 'In Progress' }),
+      Task.countDocuments({ ...filter, status: { $ne: 'Completed' }, dueDate: { $lt: now } }),
+    ]);
+
+    const data = { total, completed, pending, inProgress, overdue };
+    await cacheSet(cacheKey, data, 120);
+
+    res.status(200).json({ success: true, fromCache: false, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+

@@ -1,80 +1,79 @@
 const express = require('express');
-const {
-  getTaskAnalytics,
-  getUserAnalytics,
-  getTeamAnalytics,
-} = require('../controllers/analyticsController');
-const { protect, authorize } = require('../middlewares/auth');
-
 const router = express.Router();
+const { protect, authorize } = require('../middlewares/auth');
+const { getTaskAnalytics, getUserAnalytics, getTeamAnalytics, getMyAnalytics } = require('../controllers/analyticsController');
 
 /**
  * @swagger
  * tags:
  *   name: Analytics
- *   description: Task analytics and statistics
+ *   description: System and performance analytics
  */
+
+/**
+ * @swagger
+ * /api/analytics/me:
+ *   get:
+ *     summary: Get personal task analytics (for the logged-in user)
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Personal task analytics data
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/me', protect, getMyAnalytics);
 
 /**
  * @swagger
  * /api/analytics/tasks:
  *   get:
- *     summary: Get task statistics (count by status) for current user/team/all
+ *     summary: Get overall task analytics (completion rates, overdue stats)
  *     tags: [Analytics]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Task analytics data
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: integer
- *                     completed:
- *                       type: integer
- *                     pending:
- *                       type: integer
- *                     inProgress:
- *                       type: integer
- *                     overdue:
- *                       type: integer
+ *       403:
+ *         description: Access denied
  */
-router.get('/tasks', protect, getTaskAnalytics);
+router.get('/tasks', protect, authorize('Admin', 'Manager'), getTaskAnalytics);
 
 /**
  * @swagger
  * /api/analytics/users:
  *   get:
- *     summary: Get per-user task statistics (Admin/Manager only)
+ *     summary: Get user performance analytics (tasks completed vs overdue per user)
  *     tags: [Analytics]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Per-user analytics
+ *         description: User performance metrics
+ *       403:
+ *         description: Access denied (Admin only)
  */
-router.get('/users', protect, authorize('Admin', 'Manager'), getUserAnalytics);
+router.get('/users', protect, authorize('Admin'), getUserAnalytics);
 
 /**
  * @swagger
  * /api/analytics/teams:
  *   get:
- *     summary: Get per-team task statistics (Admin only)
+ *     summary: Get team performance analytics (Admin only)
  *     tags: [Analytics]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Per-team analytics
+ *         description: Team performance metrics
+ *       403:
+ *         description: Access denied (Admin only)
  */
 router.get('/teams', protect, authorize('Admin'), getTeamAnalytics);
 
 module.exports = router;
+
+

@@ -2,14 +2,14 @@ const Task = require('../models/Task');
 const User = require('../models/User');
 const { cacheGet, cacheSet, cacheDelPattern } = require('../config/redis');
 
-
 const emitTaskEvent = (event, data) => {
-  if (global.io) {
-    
-    global.io.to(data.team || 'Default').emit(event, data);
-    global.io.emit(`tasks:${event}`, data);
-  }
+  if (!global.io) return;
+
+  global.io.to(data.team || 'Default').emit(event, data);
+
+  global.io.to('admins').emit(event, data);
 };
+
 
 exports.createTask = async (req, res) => {
   try {
@@ -302,12 +302,65 @@ exports.assignTask = async (req, res) => {
 
 exports.getMyTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ assignedTo: req.user._id })
-      .populate('createdBy', 'username email')
-      .sort({ dueDate: 1 });
+    const {
+      status,
+      priority,
+      search,
+      dueBefore,
+      dueAfter,
+      sortBy = 'dueDate',
+      order = 'asc',
+      page = 1,
+      limit = 10,
+    } = req.query;
 
-    res.status(200).json({ success: true, count: tasks.length, data: tasks });
+    const cacheKey = `mytasks:${req.user.id}:${JSON.stringify(req.query)}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, fromCache: true, ...cached });
+    }
+
+    const filter = { assignedTo: req.user._id };
+
+    if (status)   filter.status   = status;
+    if (priority) filter.priority = priority;
+
+    if (dueBefore || dueAfter) {
+      filter.dueDate = {};
+      if (dueBefore) filter.dueDate.$lte = new Date(dueBefore);
+      if (dueAfter)  filter.dueDate.$gte = new Date(dueAfter);
+    }
+
+    if (search) filter.$text = { $search: search };
+
+    const pageNum  = parseInt(page,  10);
+    const limitNum = parseInt(limit, 10);
+    const skip     = (pageNum - 1) * limitNum;
+    const sortDir  = order === 'desc' ? -1 : 1;
+
+    const [tasks, total] = await Promise.all([
+      Task.find(filter)
+        .populate('assignedTo', 'username email team')
+        .populate('createdBy', 'username email')
+        .sort({ [sortBy]: sortDir })
+        .skip(skip)
+        .limit(limitNum),
+      Task.countDocuments(filter),
+    ]);
+
+    const payload = {
+      count: tasks.length,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      data: tasks,
+    };
+
+    await cacheSet(cacheKey, payload, 60);
+
+    res.status(200).json({ success: true, fromCache: false, ...payload });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+

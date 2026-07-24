@@ -5,12 +5,11 @@ let redisClient = null;
 const createRedisClient = () => {
   const redisUrl = process.env.REDIS_URL;
 
-  // Build config: prefer REDIS_URL (Upstash/cloud), fall back to host/port
   const clientConfig = redisUrl
     ? {
         url: redisUrl,
         socket: {
-          tls: redisUrl.startsWith('rediss://'), // TLS for Upstash (rediss://)
+          tls: redisUrl.startsWith('rediss://'), 
           reconnectStrategy: (retries) => {
             if (retries > 5) {
               console.warn('Redis max reconnect attempts reached. Running without cache.');

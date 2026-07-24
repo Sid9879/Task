@@ -1,4 +1,3 @@
-// Note: dotenv loaded in server.js before this module is required
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -6,35 +5,30 @@ const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsDoc = require('swagger-jsdoc');
 
-// Route files
 const authRoutes = require('./routes/auth');
 const taskRoutes = require('./routes/tasks');
 const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 
-// ── Core Middlewares ────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: '*' }));
 app.use(
   helmet({
-    contentSecurityPolicy: false, // allow Swagger UI to load
+    contentSecurityPolicy: false, 
   })
 );
-
-// ── Global API Rate Limiter ───────────────────────────────────────────────────
-// Applied to all /api/* routes — stricter limits applied per-route in auth.js
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,                  // max 200 requests per IP per window
+  max: 200,                  
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', globalLimiter);
 
-// ── Swagger / OpenAPI 3.0 ────────────────────────────────────────────────────
+
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -114,28 +108,24 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'Task Manager API Docs',
 }));
 
-// Raw spec endpoint
+
 app.get('/api-docs.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
 
-// ── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// ── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) =>
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() })
 );
 
-// ── 404 Handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.originalUrl} not found` });
 });
 
-// ── Global Error Handler ──────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err.stack);
   res.status(err.statusCode || 500).json({

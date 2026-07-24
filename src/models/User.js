@@ -33,7 +33,9 @@ const userSchema = new mongoose.Schema(
     },
     team: {
       type: String,
-      default: 'Default',
+      trim: true,
+      lowercase: true,
+      default: 'default',
     },
     isActive: {
       type: Boolean,
@@ -43,14 +45,13 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Hash password before saving (Mongoose 9: async hooks don't take `next`)
+
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Compare entered password with hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

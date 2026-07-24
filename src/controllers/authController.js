@@ -2,10 +2,10 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { blacklistToken } = require('../config/redis');
 
-// Helper: sign JWT and send response
+
 const sendTokenResponse = (user, statusCode, res) => {
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+    expiresIn: process.env.JWT_EXPIRES_IN,
   });
 
   const userData = {
@@ -20,12 +20,11 @@ const sendTokenResponse = (user, statusCode, res) => {
   res.status(statusCode).json({ success: true, token, data: userData });
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-// @access  Public
+
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, role, team } = req.body;
+
+    const { username, email, password, team } = req.body;
 
     const existing = await User.findOne({ $or: [{ email }, { username }] });
     if (existing) {
@@ -35,16 +34,15 @@ exports.register = async (req, res) => {
       });
     }
 
-    const user = await User.create({ username, email, password, role, team });
+   
+    const user = await User.create({ username, email, password, team, role: 'User' });
     sendTokenResponse(user, 201, res);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+
 exports.login = async (req, res) => {
   try {
     const { email, username, password } = req.body;
@@ -53,7 +51,7 @@ exports.login = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Please provide email or username, and password' });
     }
 
-    // Support login by either email or username
+  
     const query = email ? { email } : { username };
     const user = await User.findOne(query).select('+password');
     if (!user) {
@@ -75,9 +73,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// @desc    Logout user — blacklist token in Redis
-// @route   POST /api/auth/logout
-// @access  Private
+
 exports.logout = async (req, res) => {
   try {
     const token = req.token;
@@ -91,9 +87,7 @@ exports.logout = async (req, res) => {
   }
 };
 
-// @desc    Get current logged-in user profile
-// @route   GET /api/auth/me
-// @access  Private
+
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -103,9 +97,6 @@ exports.getMe = async (req, res) => {
   }
 };
 
-// @desc    Get all users (Admin only)
-// @route   GET /api/auth/users
-// @access  Private/Admin
 exports.getUsers = async (req, res) => {
   try {
     const users = await User.find().select('-__v');
@@ -115,9 +106,7 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-// @desc    Update user role (Admin only)
-// @route   PUT /api/auth/users/:id/role
-// @access  Private/Admin
+
 exports.updateUserRole = async (req, res) => {
   try {
     const { role } = req.body;
@@ -136,9 +125,7 @@ exports.updateUserRole = async (req, res) => {
   }
 };
 
-// @desc    Deactivate / activate a user (Admin only)
-// @route   PUT /api/auth/users/:id/status
-// @access  Private/Admin
+
 exports.toggleUserStatus = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);

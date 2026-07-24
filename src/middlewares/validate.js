@@ -31,7 +31,7 @@ exports.validateLogin = (req, res, next) => {
     email: Joi.string().email(),
     username: Joi.string().min(3),
     password: Joi.string().required(),
-  }).or('email', 'username'); // require at least one of email/username
+  }).or('email', 'username'); 
 
   const { error } = schema.validate(req.body, { abortEarly: false });
   if (error) {
